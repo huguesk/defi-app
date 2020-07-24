@@ -10,6 +10,7 @@ export const initialState = {
   paymentRequests: [],
   walletTxns: [],
   walletTxnCount: 0,
+  skipTransaction: {},
   isWalletTxnsLoading: false,
   receivedData: {
     amountToReceive: '',
@@ -49,6 +50,7 @@ const configSlice = createSlice({
     fetchWalletTxnsSuccess(state, action) {
       state.walletTxns = action.payload.walletTxns;
       state.walletTxnCount = action.payload.walletTxnCount;
+      state.skipTransaction = action.payload.skipTransaction;
       state.isWalletTxnsLoading = false;
     },
     fetchWalletTxnsFailure(state, action) {

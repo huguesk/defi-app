@@ -1,5 +1,5 @@
-import { call, put, takeLatest } from 'redux-saga/effects';
-import * as  log from '../../utils/electronLogger';
+import { call, put, takeLatest, select } from 'redux-saga/effects';
+import * as log from '../../utils/electronLogger';
 import {
   fetchPaymentRequest,
   fetchPaymentRequestsSuccess,
@@ -36,6 +36,35 @@ import queue from '../../worker/queue';
 import store from '../../app/rootStore';
 import showNotification from '../../utils/notifications';
 import { I18n } from 'react-redux-i18n';
+import uniqBy from 'lodash/uniqBy';
+import { WALLET_TXN_PAGE_SIZE } from '../../constants';
+
+const getDistincRecords = (arr: any[]) => {
+  const distict = uniqBy(arr, 'txnId');
+  const selected = distict.slice(0, WALLET_TXN_PAGE_SIZE);
+  let count = 0;
+  if (distict.length === arr.length) {
+    return {
+      count: 5,
+      selected,
+    };
+  }
+
+  if (distict.length > arr.length / 2) {
+    const rejected = distict.slice(WALLET_TXN_PAGE_SIZE);
+    rejected.forEach((val) => {
+      if (arr.findIndex((item) => item.txnId === val.txnId) !== -1) {
+        count += 2;
+      } else {
+        count += 1;
+      }
+    });
+  }
+  return {
+    count,
+    selected,
+  };
+};
 
 function fetchWalletBalance() {
   queue.push(
@@ -100,19 +129,47 @@ export function* fetchPayments() {
   }
 }
 
-function fetchWalletTxns(action) {
+function* fetchWalletTxns(action) {
   const { currentPage: pageNo, pageSize } = action.payload;
+  const { skipTransaction } = yield select((state) => state.wallet);
+  let updatedPage = pageNo;
+  let updatedSkipPage = false;
+  let previousPagePresent = false;
+  let updatedPageSize = pageSize;
+  if (skipTransaction[pageNo - 1]) {
+    updatedPage = skipTransaction[pageNo - 1];
+    previousPagePresent = true;
+    updatedPageSize = 10;
+    updatedSkipPage = true;
+  }
+  if (pageNo === 1) {
+    updatedPageSize = 10;
+  }
   queue.push(
-    { methodName: handelFetchWalletTxns, params: [pageNo, pageSize] },
+    {
+      methodName: handelFetchWalletTxns,
+      params: [updatedPage, updatedPageSize, updatedSkipPage],
+    },
     (err, result) => {
       if (err) {
         store.dispatch(fetchWalletTxnsFailure(err.message));
         log.error(err);
         return;
       }
-      if (result && result.walletTxns)
-        store.dispatch(fetchWalletTxnsSuccess({ ...result }));
-      else {
+      if (result && result.walletTxns) {
+        const { count, selected } = getDistincRecords(result.walletTxns);
+        const updatedResult = Object.assign({}, result, {
+          walletTxns: selected,
+        });
+        store.dispatch(
+          fetchWalletTxnsSuccess({
+            ...updatedResult,
+            skipTransaction: Object.assign({}, skipTransaction, {
+              [pageNo]: updatedPageSize + updatedPage - count,
+            }),
+          })
+        );
+      } else {
         showNotification(I18n.t('alerts.walletTxnsFailure'), 'No data found');
         store.dispatch(fetchWalletTxnsFailure('No data found'));
       }

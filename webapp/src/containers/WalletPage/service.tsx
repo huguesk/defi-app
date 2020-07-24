@@ -27,10 +27,19 @@ export const handelRemoveReceiveTxns = (id) => {
 
 export const handelFetchWalletTxns = async (
   pageNo: number,
-  pageSize: number
+  pageSize: number,
+  skipPage: boolean = false
 ) => {
+  let updatedPageNo = pageNo - 1;
+  if (skipPage) {
+    updatedPageNo = pageNo;
+  }
   const rpcClient = new RpcClient();
-  const walletTxns = await rpcClient.getWalletTxns(pageNo - 1, pageSize);
+  const walletTxns = await rpcClient.getWalletTxns(
+    updatedPageNo,
+    pageSize,
+    skipPage
+  );
   const walletTxnCount = await rpcClient.getWalletTxnCount();
   const data = { walletTxns: walletTxns.reverse(), walletTxnCount };
   return data;
