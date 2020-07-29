@@ -537,4 +537,11 @@ export default class RpcClient {
     }
     return data.result;
   };
+
+  getaddressInfo = async (address: string) => {
+    const { data } = await this.call('/', methodNames.GET_BLOCKCHAIN_INFO, [
+      address,
+    ]);
+    return data.result;
+  };
 }

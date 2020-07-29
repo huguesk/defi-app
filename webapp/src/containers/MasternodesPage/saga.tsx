@@ -10,11 +10,15 @@ import {
   resignMasterNode,
   resignMasterNodeFailure,
   resignMasterNodeSuccess,
+  setMasterNodeOwnerSuccess,
+  setMasterNodeOwnerError,
+  setMasterNodeOwner,
 } from './reducer';
 import {
   handelFetchMasterNodes,
   handelCreateMasterNodes,
   handleResignMasterNode,
+  getAddressInfo,
 } from './service';
 
 function* fetchMasterNodes() {
@@ -63,10 +67,28 @@ function* masterNodeResign(action) {
   }
 }
 
+function* checkMasterNodeOwnerInfo(action) {
+  try {
+    const {
+      payload: { masterNodeOwner },
+    } = action;
+    const data = yield call(getAddressInfo, masterNodeOwner);
+
+    yield put({
+      type: setMasterNodeOwnerSuccess.type,
+      payload: data.ismine && !data.iswatchonly,
+    });
+  } catch (e) {
+    yield put({ type: setMasterNodeOwnerError.type, payload: e.message });
+    log.error(e);
+  }
+}
+
 function* mySaga() {
   yield takeLatest(fetchMasternodesRequest.type, fetchMasterNodes);
   yield takeLatest(createMasterNode.type, createMasterNodes);
   yield takeLatest(resignMasterNode.type, masterNodeResign);
+  yield takeLatest(setMasterNodeOwner.type, checkMasterNodeOwnerInfo);
 }
 
 export default mySaga;
